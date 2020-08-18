@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+{% include head.html %}
+  <body class="body">
+    <!-- BEGIN content -->
+    <div class="l-out">
+      <header class="l-header header header_inner">
+        {% include header/home-header-inner.html %}
+        {% include main-menu.html %}
+      </header>
+      {% include hero/hero-inner.html %}
+      <div class="l-content">
+      {% include breadcrumbs.html %}
+
+        <div class="section section_padding_top section_padding_bottom section_has-filter">
+          <div class="ctr">
+            {% include sections/filter-controls.html %}
+            <div class="section-cols">
+              <main class="section-content">
+                <ul id="tours" class="tours">
+
+                </ul>
+                <!-- /.tours -->
+                <div class="section-btns">
+                  <button class="btn btn_more" type="button" aria-label="Показать еще"><span>Показать еще</span></button>
+                  <!-- /.btn btn_accept -->
+                </div>
+                <!-- /.section-btns -->
+              </main>
+              <!-- /.section-content -->
+              {% include sections/aside-filter.html %}
+            </div>
+            <!-- /.section-cols -->
+          </div>
+          <!-- /.ctr -->
+        </div>
+        <!-- /.section -->
+      </div>
+      <!-- /.l-content -->
+      {% include footer/footer.html %}
+    </div>
+    <!-- /.l-out -->
+    <!-- END content -->
+    <!-- BEGIN scripts -->
+
+    {% include footer/scripts.html %}
+  </body>
+</html>

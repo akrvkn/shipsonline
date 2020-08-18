@@ -1,0 +1,13 @@
+{% if page.title %}
+<nav class="breadcrumbs">
+    <div class="ctr">
+        <ul>
+            <li><a href="/">Главная</a></li>
+            {% if page.section %}<li><a href="/{{ page.section }}">{{ page.section_title }}</a></li>{% endif %}
+            <li><a href="" aria-current="true">{{ page.title }}</a></li>
+        </ul>
+    </div>
+    <!-- /.ctr -->
+</nav>
+<!-- /.breadcrumbs -->
+{% endif %}

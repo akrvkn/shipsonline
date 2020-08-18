@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+  {% include head.html %}
+  <body class="body">
+    <!-- BEGIN content -->
+    <div class="l-out">
+      <header class="l-header header">
+        {% include header/home-header-inner.html %}
+        {% include main-menu.html %}
+        {% include hero/hero.html %}
+        {% include tabs/main-categories-names.html %}
+      </header>
+      <div class="l-content">
+        {% include tabs/filter-main-categories-tabs.html %}
+        {% include sections/spec-offers.html %}
+        {% include tabs/spec-tabs.html %}
+        {% include tabs/directions-tabs.html %}
+        {% include sections/info.html %}
+        {% include sections/pr-content.html %}
+      </div>
+      <!-- /.l-content -->
+      {% include footer/footer.html %}
+    </div>
+    <!-- /.l-out -->
+    <!-- END content -->
+    <!-- BEGIN scripts -->
+    {% include footer/scripts.html %}
+  </body>
+</html>

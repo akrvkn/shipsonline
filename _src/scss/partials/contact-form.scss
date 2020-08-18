@@ -1,0 +1,113 @@
+
+.cform-wrapper {
+  margin: 100px auto 0;
+  width: 70%;
+  max-width: 1000px;
+  display: flex;
+  justify-content: center;
+}
+
+.cform {
+  width: 100%;
+  margin: 0;
+}
+
+.cform * {
+  font-size: 20px;
+  letter-spacing: 0.075em;
+  font-weight: 300;
+  color: #fff;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.cform .field {
+  width: 100%;
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.cform .field label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: linear-gradient(90deg, #0962a8, #05518b);
+  width: 100%;
+  height: 64px;
+  transition: width 333ms ease-in-out;
+  text-align: center;
+  padding: 18px 0;
+}
+
+.cform .field input[type="text"],
+.cform .field textarea {
+  border: none;
+  width: 100%;
+  height: 64px;
+  margin: 0;
+  padding-left: 19.5%;
+  color: #313a3d;
+}
+
+.cform #phone {
+  position: absolute;
+  left: -3000px;
+}
+
+.cform #msg {
+  height: 64px;
+  resize: none;
+  text-transform: none;
+  transition: all 333ms ease-in-out;
+  padding-top: 18px;
+}
+.cform textarea:focus#msg,
+.cform textarea:not(:placeholder-shown)#msg {
+  height: 166px;
+}
+.cform input[type="text"]:focus + label,
+.cform input[type="text"]:not(:placeholder-shown) + label,
+.cform textarea:focus + label,
+.cform textarea:not(:placeholder-shown) + label,
+.cform .field:hover label {
+  width: 18%;
+}
+.cform input[type="submit"] {
+  background: linear-gradient(90deg, #0962a8, #05518b);
+  -webkit-appearance: none;
+  border: none;
+  position: relative;
+  padding: 13px 50px;
+  transition: all 0.3s ease-in-out;
+}
+.cform input[type="submit"]:hover,
+.cform input[type="submit"]:focus {
+  background: #05518b;
+}
+
+#alert-msg {
+  width: 100%;
+  position: relative;
+  margin-bottom: 15px;
+  padding: 5px 20px;
+}
+
+.alert-msg-failure {
+  width: 100%;
+  position: relative;
+  margin-bottom: 15px;
+  color: #721c24;
+  background-color: #efa0a0;
+  border-radius: 3px;
+  margin-top: 10px;
+}
+.alert-msg-success {
+  width: 100%;
+  position: relative;
+  margin-bottom: 15px;
+  color: #155724;
+  background-color: #d4edda;
+  border-radius: 3px;
+  margin-top: 10px;
+}

@@ -1,0 +1,810 @@
+import Swiper from "swiper";
+("use strict");
+moment.locale("ru");
+
+let tourRoute = "",
+  tourDates = "";
+
+const mtfShipsArray = [
+  { slug: "obraztsov", id: "5" },
+  { slug: "surikov", id: "14" },
+  { slug: "krasin", id: "19" },
+  { slug: "repin", id: "36" },
+  { slug: "anastasia", id: "72" },
+  { slug: "pushkin", id: "91" },
+  { slug: "karamzin", id: "92" },
+  { slug: "krylov", id: "139" },
+  { slug: "esenin", id: "150" },
+  { slug: "bulgakov", id: "198" },
+  { slug: "rublev", id: "200" },
+  { slug: "victoria", id: "206" },
+  { slug: "grin", id: "207" },
+  { slug: "rossia", id: "247" }
+];
+
+const shipId = "206";
+let tourId = "0";
+
+const date = new Date();
+const month =
+  date.getMonth() > 9
+    ? date.getMonth()
+    : "0" + (date.getMonth() === 0 ? 1 : date.getMonth());
+const fdate = date.getFullYear() + "-" + month + "-01";
+
+const url =
+  "https://api.mosturflot.ru/v3/rivercruises/tours?fields[tours]=ship-id,route,start,finish,days&&filter[ship-id]=" +
+  shipId +
+  "&filter[start][gte]=" +
+  fdate +
+  "T00:00:00Z&per-page=100000";
+$.getJSON(url).done(function(res) {
+  const now = moment();
+  const fin = [];
+  $.each(res.data, function(i, item) {
+    if (moment(item.attributes.finish).isAfter(now)) {
+      fin.push(item.attributes.finish);
+    }
+    if (i === res.data.length - 1) {
+      const findate = fin.sort()[0];
+      $.each(res.data, function(k, tour) {
+        if (tour.attributes.finish === findate) {
+          tourId = tour.id;
+          initCruiseData(shipId, tour.id);
+          return false;
+        }
+      });
+    }
+  });
+});
+
+function initCruiseData(ship, tour) {
+  const citiesURL =
+    "https://api.mosturflot.ru/v3/rivercruises/tour-points?filter[tour-id]=" +
+    tour +
+    "&include=tour,tour.ship,excursions,title-image,tour-rates&fields[tours]=ship-id,days,start,finish,route,&fields[ships]=id,name&per-page=10000";
+  const shipURL =
+    "https://api.mosturflot.ru/v3/rivercruises/ships/" +
+    ship +
+    "?include=title-image,ship-class,services,cabin-categories,staff,deckplan,on-board-name";
+  const shipImgURL =
+    "https://api.mosturflot.ru/v3/rivercruises/ships/" + ship + "/images";
+  //const pricesURL = 'https://api.mosturflot.ru/v3/rivercruises/tours/' + tour + '?include=tour-rates,ship-title-image,direction';
+  const cabinsURL =
+    "https://api.mosturflot.ru/v3/rivercruises/ships/" +
+    ship +
+    "/cabin-categories?include=title-image";
+
+  if (ship > 0) {
+    $.when(
+      $.getJSON(shipURL),
+      $.getJSON(shipImgURL),
+      $.getJSON(cabinsURL)
+    ).done(function(ships, images, cabins) {
+      renderShipDescription(ships[0]);
+      renderShipGallery(images[0]);
+      renderSingleShipCabins(cabins[0]);
+      if (tour > 0) {
+        $.getJSON(citiesURL).done(function(points) {
+          renderTourPoints(points);
+        });
+      }
+    });
+  }
+}
+
+function renderRouteNotes(notes) {
+  $("#route-notes").html("<h3>Примечание:</h3>" + notes);
+}
+
+function renderShipGallery(shipimages) {
+  const imggallery = $("#shipImages");
+  const imgs = {};
+  $.each(shipimages.data, function(key, value) {
+    let caption = value.attributes.title === null ? "" : value.attributes.title;
+    let str = "";
+    let capHolder = "";
+    if (caption.length > 0) {
+      capHolder =
+        '<div class="ship-image__cabin">\n' +
+        '<div class="ship-image__caption"><span>&nbsp;' +
+        caption +
+        "</span></div>\n" +
+        "</div>";
+    }
+    str +=
+      '<div class="swiper-slide"><span class="ships-item__img"><picture><img src="' +
+      value.links["image-url"] +
+      '" height="' +
+      value.attributes.height +
+      '" alt="Каюта" class="ship-gallery-img"></picture>' +
+      capHolder +
+      "</span></div>";
+    /*let str = '<li class="slider__slide swiper-slide">\n' +
+            '<a href="/" class="ship-image">\n' +
+            '                <div class="ship-image__bg">\n' +
+            '                    <div class="ship-image__bg">\n' +
+            '                        <picture>\n' +
+            '                            <img src="' + value.links['image-url'] + '" alt="Теплоход" class="ship-gallery-img">\n' +
+            '                        </picture>\n' +
+            '                    </div>\n' +
+            '                    <div class="ship-image__content">\n' +
+            '                         <div class="ship-image__title">&nbsp;' + caption +'</div>\n' +
+            '                    </div>' +
+            '                </div>\n' +
+            '</a>\n' +
+            '</li>\n';*/
+    imgs[value.attributes["sort-order"]] = str;
+    let count = 0;
+    if (key + 1 === shipimages.data.length) {
+      $.each(imgs, function(k, v) {
+        count++;
+        imggallery.append(v);
+        //window.dispatchEvent(new Event('resize'));
+        if (count === shipimages.data.length) {
+          //console.log('swiper');
+          let swipe = new Swiper(".swiper-ship-gallery", {
+            autoHeight: true, //enable auto height
+            spaceBetween: 20,
+            updateOnWindowResize: true,
+            pagination: {
+              el: ".ship-pagination",
+              clickable: true,
+              dynamicBullets: true,
+              dynamicMainBullets: 1
+            },
+            navigation: {
+              nextEl: ".ship-slider-next",
+              prevEl: ".ship-slider-prev"
+            }
+          });
+          swipe.on("init", function() {
+            window.dispatchEvent(new Event("resize"));
+            //$('.swiper-ship-gallery').css('height', '533px');
+            //swipe.slideNext();
+            //console.log('resized');
+          });
+        }
+      });
+    }
+  });
+}
+
+function parseDateTime(dt) {
+  let h = 3 + parseInt(dt.substr(11, 2));
+  let m = dt.substr(14, 2);
+  return h + ":" + m;
+}
+
+function renderTourPoints(points) {
+  const $tourPoints = $("#river_tour_points")
+    .empty()
+    .html(
+      '<div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>'
+    );
+  let excursions = {};
+  let imgsrc = "";
+  let images = {};
+  $.each(points.included, function(index, inc) {
+    if (inc.type === "tour-excursions") {
+      excursions[inc.id] = {};
+      excursions[inc.id]["name"] = "Программа";
+      excursions[inc.id]["description"] = inc.attributes.description;
+
+      if (inc.attributes["is-additional"] === true) {
+        let prices = "";
+        $.each(inc.attributes.prices, function(k, v) {
+          prices +=
+            "<strong>Цена (мин. " +
+            v["min-group"] +
+            " чел.) " +
+            v.price +
+            "руб./чел.</strong><br>";
+        });
+        excursions[inc.id]["name"] =
+          "<br><strong>\n\nДополнительные экскурсии: </strong><br>";
+        excursions[inc.id]["description"] =
+          inc.attributes.description + prices + "<hr>";
+      }
+    }
+    if (inc.type === "point-images") {
+      images[inc.id] = inc.links["image-url"];
+    }
+    if (inc.type === "tours") {
+      tourRoute = inc.attributes.route;
+      tourDates =
+        moment(inc.attributes.start).format("DD MMMM H:mm") +
+        " - " +
+        moment(inc.attributes.finish).format("DD MMMM H:mm");
+      let ts = parseDateTime(inc.attributes.start);
+      let tf = parseDateTime(inc.attributes.finish);
+      $("#tourroute").prepend(
+        moment(inc.attributes.start).format("DD MMMM") +
+          " " +
+          ts +
+          " - " +
+          moment(inc.attributes.finish).format("DD MMMM") +
+          " " +
+          tf +
+          " (Дней: " +
+          inc.attributes.days +
+          ")<br>" +
+          inc.attributes.route
+      );
+      $("#tourtitle").html(
+        '<span class="tours-item__date">' +
+          moment(inc.attributes.start).format("DD MMMM") +
+          " " +
+          ts +
+          " - " +
+          moment(inc.attributes.finish).format("DD MMMM") +
+          " " +
+          tf +
+          " (Дней: " +
+          inc.attributes.days +
+          ")</span><br>" +
+          inc.attributes.route
+      );
+    }
+    if (index + 1 === points.included.length) {
+      let tourpoints = {};
+      $.each(points.data, function(i, point) {
+        let ex = "";
+        let def = "";
+        if (point.relationships.excursions.hasOwnProperty("data")) {
+          $.each(point.relationships.excursions.data, function(a, exq) {
+            if (excursions[exq.id].name === "Программа") {
+              def += "<p>" + excursions[exq.id].description + "</p>";
+            } else {
+              ex +=
+                "<p><strong>" +
+                excursions[exq.id].name +
+                "\n\n</strong></p><p>" +
+                excursions[exq.id].description +
+                "</p>";
+            }
+          });
+        }
+        if (point.relationships["title-image"].hasOwnProperty("data")) {
+          imgsrc =
+            '<img src="' +
+            images[point.relationships["title-image"].data.id] +
+            '" alt="' +
+            point.attributes.name +
+            '"/>';
+        } else {
+          imgsrc =
+            '<img src="/assets/img/mtf/ships/blank.jpg" alt="' +
+            point.attributes.name +
+            '"/>';
+        }
+
+        let arrive =
+          moment(point.attributes.arrive).isValid() === true
+            ? moment(point.attributes.arrive).format("DD MMMM H:mm")
+            : "";
+        let departure =
+          moment(point.attributes.departure).isValid() === true
+            ? moment(point.attributes.departure).format("DD MMMM H:mm")
+            : "";
+        let unix =
+          moment(point.attributes.arrive).isValid() === true
+            ? moment(point.attributes.arrive).format("X")
+            : moment(point.attributes.date).format("X");
+
+        let pointDate =
+          arrive + (departure === "" ? departure : " - " + departure);
+        let formatDate =
+          pointDate === ""
+            ? moment(point.attributes.date).format("DD MMMM")
+            : pointDate;
+        let pointTitle =
+          point.attributes.name === null ? " " : point.attributes.name;
+        //console.log(point.attributes.name);
+        //if(point.attributes.name !== null) {
+        let note = "";
+        if (point.attributes.note) {
+          note = point.attributes.note;
+        }
+        if (def.length > 0) {
+          def = "<p><strong>Программа:</strong></p>" + def;
+        }
+
+        tourpoints[unix] =
+          '<li class="tours__item"><div class="tours-item"><div class="tours-item__img">\n' +
+          "<picture>" +
+          imgsrc +
+          "</picture></div>\n" +
+          '<div class="tours-item__content">\n' +
+          '<span class="tours-item__date">' +
+          formatDate +
+          "</span>\n" +
+          '<span class="tours-item__title">' +
+          pointTitle +
+          "</span>\n" +
+          '<div class="tours-item__text"><div class="excursions">' +
+          note +
+          def +
+          ex +
+          "</div></div></div></div></li>";
+        //}
+        if (i + 1 === points.data.length) {
+          $tourPoints.empty();
+          let counter = 0;
+          //ddefTable.content[0].text[1] = {text: tourRoute + "\n\n", style: 'description'};
+          //ddefTable.content[0].text[2] = {text: tourDates, style: 'description'};
+          //ddefRoute.content[0].text[1] = {text: tourRoute + "\n\n", style: 'subheader'};
+          //ddefRoute.content[0].text[2] = {text: tourDates + "\n\n", style: 'comment'};
+          $.each(tourpoints, function(key, item) {
+            counter++;
+            $tourPoints.append(item);
+            //console.log('title ' + $(item).find('.tours-item__title').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n").length);
+            /*if($(item).find('.tours-item__title').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n").length > 2) {
+                                        ddefRoute.content.push({
+                                            text: $(item).find('.tours-item__title').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n"),
+                                            style: 'header'
+                                        });
+                                        ddefRoute.content.push({
+                                            text: $(item).find('.tours-item__date').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n"),
+                                            style: 'comment'
+                                        });
+                                        ddefRoute.content.push({
+                                            text: $(item).find('.tours-item__text').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n\n"),
+                                            style: 'description'
+                                        });
+                                    }*/
+            //if(counter === Object.keys(tourpoints).length) {
+            //console.log('notes ' + tourNotes);
+            // ddefRoute.content.push({text: 'Примечание:', style: 'subheader'});
+            //ddefRoute.content.push({text: tourNotes, style: 'comment'});
+            //}
+          });
+        }
+      });
+    }
+  });
+}
+
+function renderShipDescription(ship) {
+  const $deckplan = $("#river_ship_cruise_deckplan");
+  $deckplan.html(
+    '<a href="/assets/img/mtf/ships/' +
+      shipId +
+      '/deckplan.webp" target="_blank"><picture><source srcset="/assets/img/mtf/ships/' +
+      shipId +
+      '/deckplan.webp" type="image/webp"  width="100%"><img src="/assets/img/mtf/ships/' +
+      shipId +
+      '/deckplan.png" alt="План палуб"  width="100%"></picture></a>'
+  );
+  const $riverCruiseShipDesc = $("#river_cruise_ship_desc");
+  const $tourloading = $("#tourloading");
+  $("#shipname").html(ship.data.attributes.name);
+  $("#shiptitle").html(ship.data.attributes.name);
+  $riverCruiseShipDesc.html(ship.data.attributes.description);
+  //ddefTable.content[0].text[0] = {text: "Теплоход " + ship.data.attributes.name + "\n\n", style: 'subheader'};
+  //ddefShip.content[0] = {text: "т/х " + ship.data.attributes.name, style: 'header'};
+  // ddefRoute.content[0].text[0] = {text: "т/х " + ship.data.attributes.name + "\n\n", style: 'header'};
+  //ddefServices.content[0] = {text: "т/х " + ship.data.attributes.name, style: 'header'};
+  //ddefShip.content[1] = {text: $(ship.data.attributes.description).text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n"), style: 'description' };
+
+  let team = [];
+  let servicesIncluded = [];
+  let servicesPay = [];
+  $.each(ship.included, function(index, included) {
+    if (included.type === "staff") {
+      team.push(included.attributes);
+    }
+    if (included.type === "ship-classes") {
+      $riverCruiseShipDesc.prepend(
+        "Класс теплохода: " + included.attributes.name + "<br>"
+      );
+    }
+    if (included.type === "services") {
+      if (
+        included.attributes.status === "included" ||
+        included.attributes.status === "some cabins"
+      ) {
+        let comment =
+          included.attributes.status === "some cabins"
+            ? "<br>(Некоторые каюты)"
+            : "";
+        servicesIncluded[included.attributes["sort-order"]] =
+          '<li class="ships__item">\n' +
+          '<span class="ships-item__img">\n' +
+          '<div class="svg-' +
+          included.id +
+          " svg-" +
+          included.id +
+          '-dims" style="margin: 0 auto;"></div>\n' +
+          //'<picture><img src="/assets/img/mtf/svg/Done-Bookmark.svg" width="40" height="40" alt=""></picture>\n' +
+          "</span>\n" +
+          '<span class="ships-item__desc">' +
+          included.attributes.name +
+          comment +
+          "</span>\n" +
+          "</li>";
+      } else {
+        servicesPay[included.attributes["sort-order"]] =
+          '<li class="ships__item">\n' +
+          '<span class="ships-item__img">\n' +
+          '<div class="svg-' +
+          included.id +
+          " svg-" +
+          included.id +
+          '-dims" style="margin: 0 auto;"></div>\n' +
+          //'<picture><img src="/assets/img/mtf/svg/Coins-3.svg" width="40" height="40" alt=""></picture>\n' +
+          "</span>\n" +
+          '<span class="ships-item__desc">' +
+          included.attributes.name +
+          "</span>\n" +
+          "</li>";
+      }
+    }
+    if (index + 1 === ship.included.length) {
+      team.sort(function(a, b) {
+        let x = a["sort-order"],
+          y = b["sort-order"];
+        return x < y ? -1 : x > y ? 1 : 0;
+      });
+      getStaff(team);
+      //renderTeam(team);
+      renderServices(servicesIncluded, servicesPay);
+    }
+  });
+}
+
+function renderServices(inc, pay) {
+  const $servicesBlockIncluded = $("#river_ship_services_included").empty();
+  const $servicesBlockPay = $("#river_ship_services_pay").empty();
+  $.map(inc, function(service) {
+    $servicesBlockIncluded.append(service);
+    // ddefServices.content[2].ul.push($(service).text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, ""));
+  });
+  $.map(pay, function(money) {
+    $servicesBlockPay.append(money);
+    //ddefServices.content[4].ul.push($(money).text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, ""));
+  });
+}
+
+function getStaff(staff) {
+  //console.log(staff);
+  const $personal_block = $("#river_ship_personal");
+  $.map(staff, function(person, index) {
+    $personal_block.append(
+      $("<li />", { id: "staff_" + person.id, class: "ships__item" })
+    );
+    $.getJSON(
+      "https://api.mosturflot.ru/v3/rivercruises/staff/" +
+        person.id +
+        "/images",
+      function(imgs) {
+        let item = "";
+        if (imgs.data[0].links["image-url"]) {
+          item =
+            '<a href="#" class="ships-item">\n' +
+            '<span class="ships-item__img">\n' +
+            "<picture>\n" +
+            '<img src="' +
+            imgs.data[0].links["image-url"] +
+            '" alt="' +
+            person.position +
+            '">\n' +
+            "</picture>\n" +
+            "</span>\n" +
+            '<span class="tours-item__date">' +
+            person.position +
+            "</span>\n" +
+            '<span class="ships-item__title">' +
+            person.name +
+            "</span>\n" +
+            "</a>\n";
+          //personal[person['sort-order']] = item;
+          $("#staff_" + person.id).append(item);
+        }
+      }
+    );
+  });
+}
+
+function renderCabins(cabinCat, domID) {
+  const $rivershipCabins = $("#" + domID);
+  //$.map(cabinsData, function(cabinCat){
+  //console.log(cabinCat['price-adult']);
+  if (
+    cabinCat.hasOwnProperty("name") &&
+    cabinCat["price-adult"] !== "-" &&
+    cabinCat["price-adult"] !== undefined
+  ) {
+    let catDef =
+      cabinCat.name +
+      "\n" +
+      $("<p>" + cabinCat.description + "</p>")
+        .text()
+        .replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n") +
+      "\n\n";
+    //ddefTable.content[7].ul.push(catDef);
+    //let rub = cabinCat['price-adult'] === '-' ? '-' : cabinCat['price-adult'] + ' руб.';
+    $.getJSON(
+      "https://api.mosturflot.ru/v3/rivercruises/cabin-categories/" +
+        cabinCat.catid +
+        "/images",
+      function(imgs) {
+        if (imgs.data.length > 0) {
+          let swiperCabin =
+            '<div class="swiper-container cabin' +
+            cabinCat.catid +
+            '" style="height:260px;"><div class="swiper-wrapper">';
+          $.map(imgs.data, function(cabimg, num) {
+            let caption =
+              cabimg.attributes.title === null ? "" : cabimg.attributes.title;
+            let capHolder = "";
+            if (caption.length > 0) {
+              capHolder =
+                '<div class="ship-image__cabin">\n' +
+                '<div class="ship-image__caption"><span>&nbsp;' +
+                caption +
+                "</span></div>\n" +
+                "</div>";
+            }
+            swiperCabin +=
+              '<div class="swiper-slide" style="height:260px;"><span class="ships-item__img"><picture><img src="' +
+              cabimg.links["image-url"] +
+              '" alt="Каюта" style="width:100%; height: 260px;"></picture>' +
+              capHolder +
+              "</span></div>";
+            if (imgs.data.length === num + 1) {
+              swiperCabin +=
+                "</div>" +
+                '<div class="swiper-button-next"></div>' +
+                '<div class="swiper-button-prev"></div>' +
+                "</div>";
+              $rivershipCabins.append(
+                swiperCabin +
+                  '<span class="tours-item__date" style="padding-top: 20px;">Категория: ' +
+                  cabinCat.name +
+                  "</span>\n" +
+                  '<span class="ships-item__text">' +
+                  cabinCat.description +
+                  "</span>\n" +
+                  "</a>\n"
+              );
+
+              let swipe = new Swiper(".cabin" + cabinCat.catid, {
+                autoHeight: true, //enable auto height
+                spaceBetween: 20,
+                pagination: {
+                  el: ".swiper-pagination",
+                  clickable: true
+                },
+                navigation: {
+                  nextEl: ".swiper-button-next",
+                  prevEl: ".swiper-button-prev"
+                }
+              });
+            }
+          });
+        } else {
+          $rivershipCabins.append(
+            '<a href="https://booking.mosturflot.ru/rivercruises/booking/new/' +
+              tourId +
+              '" class="ships-item"><span class="ships-item__img"><picture>\n' +
+              cabinCat.image +
+              "</picture></span>" +
+              '<span class="tours-item__date">Категория: ' +
+              cabinCat.name +
+              "</span>\n" +
+              '<span class="ships-item__text">' +
+              cabinCat.description +
+              "</span>\n" +
+              "</a>\n"
+          );
+          //ddefTable.content[7].ul.push(cabinCat.name + "\n\n" + cabinCat.description.replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n"));
+        }
+      }
+    );
+  }
+  //});
+}
+
+/******** Ship Default Cabins ***********/
+function renderShipCabins(cabinCat, domID) {
+  const $rivershipCabins = $("#" + domID);
+  if (cabinCat.hasOwnProperty("name") && cabinCat.description.length > 0) {
+    //let rub = cabinCat['price-adult'] === '-' ? '-' : cabinCat['price-adult'] + ' руб.';
+    $.getJSON(
+      "https://api.mosturflot.ru/v3/rivercruises/cabin-categories/" +
+        cabinCat.catid +
+        "/images",
+      function(imgs) {
+        //console.log(imgs);
+        if (imgs.data.length > 0) {
+          let swiperCabin =
+            '<div class="swiper-container cabin' +
+            cabinCat.catid +
+            '" style="height:260px;"><div class="swiper-wrapper">';
+          $.map(imgs.data, function(cabimg, num) {
+            let caption =
+              cabimg.attributes.title === null ? "" : cabimg.attributes.title;
+            let capHolder = "";
+            if (caption.length > 0) {
+              capHolder =
+                '<div class="ship-image__cabin">\n' +
+                '<div class="ship-image__caption"><span>&nbsp;' +
+                caption +
+                "</span></div>\n" +
+                "</div>";
+            }
+            swiperCabin +=
+              '<div class="swiper-slide" style="height:260px;"><span class="ships-item__img"><picture><img src="' +
+              cabimg.links["image-url"] +
+              '" alt="Каюта" style="width:100%; height: 260px;"></picture>' +
+              capHolder +
+              "</span></div>";
+            if (imgs.data.length === num + 1) {
+              swiperCabin +=
+                "</div>" +
+                '<div class="swiper-button-next"></div>' +
+                '<div class="swiper-button-prev"></div>' +
+                "</div>";
+              $rivershipCabins.append(
+                swiperCabin +
+                  '<span class="tours-item__date" style="padding-top: 20px;">Категория: ' +
+                  cabinCat.name +
+                  "</span>\n" +
+                  '<span class="ships-item__text">' +
+                  cabinCat.description +
+                  "</span>\n" +
+                  "</a>\n"
+              );
+
+              let swipe = new Swiper(".cabin" + cabinCat.catid, {
+                autoHeight: true, //enable auto height
+                spaceBetween: 20,
+                pagination: {
+                  el: ".swiper-pagination",
+                  clickable: true
+                },
+                navigation: {
+                  nextEl: ".swiper-button-next",
+                  prevEl: ".swiper-button-prev"
+                }
+              });
+            }
+          });
+        } /*else {
+                $rivershipCabins.append('<a href="https://booking.mosturflot.ru/rivercruises/booking/new/' + tourId + '" class="ships-item"><span class="ships-item__img"><picture><img src="/assets/img/mtf/ships/' + shipId + '/1.jpg"</picture></span>' +
+                    '<span class="tours-item__date">Категория: ' + cabinCat.name + '</span>\n' +
+                    '<span class="ships-item__text">' + cabinCat.description + '</span>\n' +
+                    '</a>\n');
+                //ddefTable.content[7].ul.push(cabinCat.name + "\n\n" + cabinCat.description.replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n"));
+            }*/
+      }
+    );
+  }
+  //});
+}
+
+/******** End Ship Cabins *******/
+
+/******** river ship tours *********/
+let dd = new Date();
+const curr_date = dd.toISOString().substring(0, 10);
+function filterSkidki(skidka, expire) {
+  let a = moment();
+  let b = moment();
+  if (expire !== null) {
+    a = moment(expire, moment.ISO_8601);
+  }
+  if (filters.skidka === false) {
+    return true;
+  } else {
+    return skidka > 0 && a.isAfter(b);
+  }
+}
+
+const $ship_cruises_block = $("#river_ship_cruises");
+if ($ship_cruises_block.length > 0 && shipId > 0) {
+  let ship_cruises_url =
+    "https://api.mosturflot.ru/v3/rivercruises/tours?fields[tours]=ship-id,route,days,start,finish,price-from,is-special-offer,max-discount,price-from-discount,discount-expire&include=ship,ship-title-image&fields[ships]=name&filter[start][gte]=" +
+    curr_date +
+    "T00:00:00Z&filter[ship-id]=" +
+    shipId +
+    "&per-page=100";
+  $.getJSON(ship_cruises_url, function(tours) {
+    //$ship_cruises_block.empty();
+
+    $.map(tours.data, function(tour) {
+      let a = moment();
+      let b = moment();
+      if (tour.attributes["discount-expire"] !== null) {
+        a = moment(tour.attributes["discount-expire"], moment.ISO_8601);
+      }
+      let price =
+        '<span class="tours-item__title"><span>' +
+        tour.attributes["price-from"] +
+        " руб.</span></span>";
+      let skidka = "";
+      if (parseInt(tour.attributes["max-discount"]) > 0 && a.isAfter(b)) {
+        skidka =
+          '<span class="tours-item__skidka">- ' +
+          tour.attributes["max-discount"] +
+          " %</span>";
+        //let oldprice = parseInt(tour.attributes['price-from']) + (parseInt(tour.attributes['price-from'])*parseInt(tour.attributes['max-discount'])/100).toFixed();
+        price =
+          '<span class="tours-item__prices"><span>' +
+          tour.attributes["price-from"] +
+          " руб.</span></span>";
+      }
+      $ship_cruises_block.append(
+        '<li class="ships__item">\n' +
+          '    <a href="/rivercruise/?ship=' +
+          tour.attributes["ship-id"] +
+          "&tour=" +
+          tour.id +
+          '" class="ships-item" target="_blank">\n' +
+          '                      <span class="ships-item__img">\n' +
+          "                        <picture>\n" +
+          '                          <source srcset="/assets/img/mtf/ships/' +
+          tour.attributes["ship-id"] +
+          '.webp" type="image/webp">' +
+          '                          <img src="/assets/img/mtf/ships/' +
+          tour.attributes["ship-id"] +
+          '.jpg" alt="">\n' +
+          "                        </picture>\n" +
+          skidka +
+          "                      </span>\n" +
+          "        <!-- /.tours-item__img -->\n" +
+          '        <span class="tours-item__content">\n' +
+          price +
+          '                        <span class="tours-item__date" style="padding-top: 10px">' +
+          moment(tour.attributes.start).format("DD MMMM") +
+          " - " +
+          moment(tour.attributes.finish).format("DD MMMM YYYY") +
+          "</span>\n" +
+          "            <!-- /.tours-item__date -->\n" +
+          '                        <span class="tours-item__text">' +
+          tour.attributes.route +
+          "</span>\n" +
+          "            <!-- /.tours-item__text -->\n" +
+          "                      </span>\n" +
+          "        <!-- /.tours-item__content -->\n" +
+          "    </a>\n" +
+          "    <!-- /.tours-item -->\n" +
+          "</li>"
+      );
+    });
+    //}
+  });
+}
+/*************** end river ship tours *******************/
+
+/****** single ship cabins *********/
+function renderSingleShipCabins(cabins) {
+  const $river_ship_cabins = $("#river_ship_cabins");
+  if ($river_ship_cabins.length > 0) {
+    let ship_cabins = {};
+    $.map(cabins.data, function(cabin_cat, index) {
+      let desc =
+        cabin_cat.attributes.description === null
+          ? ""
+          : cabin_cat.attributes.description.replace(/<.*?>/g, "");
+      ship_cabins[cabin_cat.attributes["sort-order"]] = {
+        catid: cabin_cat.id,
+        name: cabin_cat.attributes.name,
+        description: desc
+      };
+
+      if (cabins.data.length === index + 1) {
+        //console.log(Object.keys(ship_cabins).length);
+        $.map(ship_cabins, function(item) {
+          const cabinItem = $("<li/>", {
+            id: "shipcab_" + item.catid,
+            class: "ships__cabin"
+          });
+          $river_ship_cabins.append(cabinItem);
+          renderShipCabins(item, "shipcab_" + item.catid);
+        });
+      }
+    });
+  }
+}
