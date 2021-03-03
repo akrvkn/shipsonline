@@ -1,6 +1,8 @@
 import Swiper from "swiper";
-("use strict");
+import moment from 'moment-timezone';
+"use strict";
 moment.locale("ru");
+moment.tz.setDefault("Europe/Moscow");
 
 let tourRoute = "",
   tourDates = "";
@@ -22,41 +24,52 @@ const mtfShipsArray = [
   { slug: "rossia", id: "247" }
 ];
 
-const shipId = "206";
+//const shipId = shipNum;
+let shipId;
 let tourId = "0";
+const link = getConfig();
 
-const date = new Date();
-const month =
-  date.getMonth() > 9
-    ? date.getMonth()
-    : "0" + (date.getMonth() === 0 ? 1 : date.getMonth());
-const fdate = date.getFullYear() + "-" + month + "-01";
+function getConfig(){
+  $.getJSON("/assets/js/config.json").done(function (res) {
+    shipId = res.ship;
+    tourId = res.tour;
+    initCruiseData(shipId, tourId);
+    // const date = new Date();
+    // const month =
+    //     date.getMonth() > 9
+    //         ? date.getMonth()
+    //         : "0" + (date.getMonth() === 0 ? 1 : date.getMonth());
+    // const fdate = date.getFullYear() + "-" + month + "-01";
+    //
+    // init("https://api.mosturflot.ru/v3/rivercruises/tours?fields[tours]=ship-id,route,start,finish,days&filter[ship-id]=" +
+    //     res.id +
+    //     "&filter[start][gte]=" +
+    //     fdate +
+    //     "T00:00:00Z&per-page=100000");
+  })
+}
 
-const url =
-  "https://api.mosturflot.ru/v3/rivercruises/tours?fields[tours]=ship-id,route,start,finish,days&&filter[ship-id]=" +
-  shipId +
-  "&filter[start][gte]=" +
-  fdate +
-  "T00:00:00Z&per-page=100000";
-$.getJSON(url).done(function(res) {
-  const now = moment();
-  const fin = [];
-  $.each(res.data, function(i, item) {
-    if (moment(item.attributes.finish).isAfter(now)) {
-      fin.push(item.attributes.finish);
-    }
-    if (i === res.data.length - 1) {
-      const findate = fin.sort()[0];
-      $.each(res.data, function(k, tour) {
-        if (tour.attributes.finish === findate) {
-          tourId = tour.id;
-          initCruiseData(shipId, tour.id);
-          return false;
-        }
-      });
-    }
+function init(url) {
+  $.getJSON(url).done(function (res) {
+    const now = moment();
+    const fin = [];
+    $.each(res.data, function (i, item) {
+      if (moment(item.attributes.finish).isAfter(now)) {
+        fin.push(item.attributes.finish);
+      }
+      if (i === res.data.length - 1) {
+        const findate = fin.sort()[0];
+        $.each(res.data, function (k, tour) {
+          if (tour.attributes.finish === findate) {
+            tourId = tour.id;
+            initCruiseData(shipId, tour.id);
+            return false;
+          }
+        });
+      }
+    });
   });
-});
+}
 
 function initCruiseData(ship, tour) {
   const citiesURL =
@@ -79,11 +92,11 @@ function initCruiseData(ship, tour) {
     $.when(
       $.getJSON(shipURL),
       $.getJSON(shipImgURL),
-      $.getJSON(cabinsURL)
-    ).done(function(ships, images, cabins) {
+      //$.getJSON(cabinsURL)
+    ).done(function(ships, images) {
       renderShipDescription(ships[0]);
       renderShipGallery(images[0]);
-      renderSingleShipCabins(cabins[0]);
+      //renderSingleShipCabins(cabins[0]);
       if (tour > 0) {
         $.getJSON(citiesURL).done(function(points) {
           renderTourPoints(points);
@@ -92,6 +105,7 @@ function initCruiseData(ship, tour) {
     });
   }
 }
+
 
 function renderRouteNotes(notes) {
   $("#route-notes").html("<h3>Примечание:</h3>" + notes);
@@ -176,194 +190,265 @@ function parseDateTime(dt) {
   return h + ":" + m;
 }
 
-function renderTourPoints(points) {
+// function renderTourPoints(points) {
+//   const $tourPoints = $("#river_tour_points")
+//     .empty()
+//     .html(
+//       '<div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>'
+//     );
+//   let excursions = {};
+//   let imgsrc = "";
+//   let images = {};
+//   $.each(points.included, function(index, inc) {
+//     if (inc.type === "tour-excursions") {
+//       excursions[inc.id] = {};
+//       excursions[inc.id]["name"] = "Программа";
+//       excursions[inc.id]["description"] = inc.attributes.description;
+//
+//       if (inc.attributes["is-additional"] === true) {
+//         let prices = "";
+//         $.each(inc.attributes.prices, function(k, v) {
+//           prices +=
+//             "<strong>Цена (мин. " +
+//             v["min-group"] +
+//             " чел.) " +
+//             v.price +
+//             "руб./чел.</strong><br>";
+//         });
+//         excursions[inc.id]["name"] =
+//           "<br><strong>\n\nДополнительные экскурсии: </strong><br>";
+//         excursions[inc.id]["description"] =
+//           inc.attributes.description + prices + "<hr>";
+//       }
+//     }
+//     if (inc.type === "point-images") {
+//       images[inc.id] = inc.links["image-url"];
+//     }
+//     if (inc.type === "tours") {
+//       tourRoute = inc.attributes.route;
+//       tourDates =
+//         moment(inc.attributes.start).format("DD MMMM H:mm") +
+//         " - " +
+//         moment(inc.attributes.finish).format("DD MMMM H:mm");
+//       let ts = parseDateTime(inc.attributes.start);
+//       let tf = parseDateTime(inc.attributes.finish);
+//       $("#tourroute").prepend(
+//         moment(inc.attributes.start).format("DD MMMM") +
+//           " " +
+//           ts +
+//           " - " +
+//           moment(inc.attributes.finish).format("DD MMMM") +
+//           " " +
+//           tf +
+//           " (Дней: " +
+//           inc.attributes.days +
+//           ")<br>" +
+//           inc.attributes.route
+//       );
+//       $("#tourtitle").html(
+//         '<span class="tours-item__date">' +
+//           moment(inc.attributes.start).format("DD MMMM") +
+//           " " +
+//           ts +
+//           " - " +
+//           moment(inc.attributes.finish).format("DD MMMM") +
+//           " " +
+//           tf +
+//           " (Дней: " +
+//           inc.attributes.days +
+//           ")</span><br>" +
+//           inc.attributes.route
+//       );
+//     }
+//     if (index + 1 === points.included.length) {
+//       let tourpoints = {};
+//       $.each(points.data, function(i, point) {
+//         let ex = "";
+//         let def = "";
+//         if (point.relationships.excursions.hasOwnProperty("data")) {
+//           $.each(point.relationships.excursions.data, function(a, exq) {
+//             if (excursions[exq.id].name === "Программа") {
+//               def += "<p>" + excursions[exq.id].description + "</p>";
+//             } else {
+//               ex +=
+//                 "<p><strong>" +
+//                 excursions[exq.id].name +
+//                 "\n\n</strong></p><p>" +
+//                 excursions[exq.id].description +
+//                 "</p>";
+//             }
+//           });
+//         }
+//         if (point.relationships["title-image"].hasOwnProperty("data")) {
+//           imgsrc =
+//             '<img src="' +
+//             images[point.relationships["title-image"].data.id] +
+//             '" alt="' +
+//             point.attributes.name +
+//             '"/>';
+//         } else {
+//           imgsrc =
+//             '<img src="/assets/img/mtf/ships/blank.jpg" alt="' +
+//             point.attributes.name +
+//             '"/>';
+//         }
+//
+//         let arrive =
+//           moment(point.attributes.arrive).isValid() === true
+//             ? moment(point.attributes.arrive).format("DD MMMM H:mm")
+//             : "";
+//         let departure =
+//           moment(point.attributes.departure).isValid() === true
+//             ? moment(point.attributes.departure).format("DD MMMM H:mm")
+//             : "";
+//         let unix =
+//           moment(point.attributes.arrive).isValid() === true
+//             ? moment(point.attributes.arrive).format("X")
+//             : moment(point.attributes.date).format("X");
+//
+//         let pointDate =
+//           arrive + (departure === "" ? departure : " - " + departure);
+//         let formatDate =
+//           pointDate === ""
+//             ? moment(point.attributes.date).format("DD MMMM")
+//             : pointDate;
+//         let pointTitle =
+//           point.attributes.name === null ? " " : point.attributes.name;
+//         //console.log(point.attributes.name);
+//         //if(point.attributes.name !== null) {
+//         let note = "";
+//         if (point.attributes.note) {
+//           note = point.attributes.note;
+//         }
+//         if (def.length > 0) {
+//           def = "<p><strong>Программа:</strong></p>" + def;
+//         }
+//
+//         tourpoints[unix] =
+//           '<li class="tours__item"><div class="tours-item"><div class="tours-item__img">\n' +
+//           "<picture>" +
+//           imgsrc +
+//           "</picture></div>\n" +
+//           '<div class="tours-item__content">\n' +
+//           '<span class="tours-item__date">' +
+//           formatDate +
+//           "</span>\n" +
+//           '<span class="tours-item__title">' +
+//           pointTitle +
+//           "</span>\n" +
+//           '<div class="tours-item__text"><div class="excursions">' +
+//           note +
+//           def +
+//           ex +
+//           "</div></div></div></div></li>";
+//         //}
+//         if (i + 1 === points.data.length) {
+//           $tourPoints.empty();
+//           let counter = 0;
+//           $.each(tourpoints, function(key, item) {
+//             counter++;
+//             $tourPoints.append(item);
+//           });
+//         }
+//       });
+//     }
+//   });
+// }
+
+function renderTourPoints(points){
   const $tourPoints = $("#river_tour_points")
     .empty()
     .html(
       '<div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>'
     );
   let excursions = {};
-  let imgsrc = "";
+  let imgsrc = '';
   let images = {};
-  $.each(points.included, function(index, inc) {
-    if (inc.type === "tour-excursions") {
+  $.each(points.included, function(index, inc){
+    if(inc.type === 'tour-excursions'){
       excursions[inc.id] = {};
-      excursions[inc.id]["name"] = "Программа";
-      excursions[inc.id]["description"] = inc.attributes.description;
+      excursions[inc.id]['name'] = 'Экскурсии на выбор';
+      excursions[inc.id]['title'] = inc.attributes.name;
+      excursions[inc.id]['description'] = inc.attributes.description;
 
-      if (inc.attributes["is-additional"] === true) {
-        let prices = "";
-        $.each(inc.attributes.prices, function(k, v) {
-          prices +=
-            "<strong>Цена (мин. " +
-            v["min-group"] +
-            " чел.) " +
-            v.price +
-            "руб./чел.</strong><br>";
+      if(inc.attributes['is-additional'] === true){
+        let prices = '';
+        $.each(inc.attributes.prices, function(k, v){
+          prices += '<strong>Цена (мин. ' + v['min-group'] + ' чел.) ' + v.price + 'руб./чел.</strong><br>';
         });
-        excursions[inc.id]["name"] =
-          "<br><strong>\n\nДополнительные экскурсии: </strong><br>";
-        excursions[inc.id]["description"] =
-          inc.attributes.description + prices + "<hr>";
+        excursions[inc.id]['name'] = '<br><strong>\n\nДополнительные экскурсии: ' + inc.attributes.name + '</strong><br>';
+        excursions[inc.id]['description'] = inc.attributes.description + prices + '<hr>';
       }
     }
-    if (inc.type === "point-images") {
-      images[inc.id] = inc.links["image-url"];
+    if(inc.type === 'point-images'){
+      images[inc.id] = inc.links['image-url'];
     }
-    if (inc.type === "tours") {
+    if(inc.type === 'tours'){
       tourRoute = inc.attributes.route;
-      tourDates =
-        moment(inc.attributes.start).format("DD MMMM H:mm") +
-        " - " +
-        moment(inc.attributes.finish).format("DD MMMM H:mm");
+      tourDates = moment(inc.attributes.start).format('DD MMMM H:mm') + ' - ' + moment(inc.attributes.finish).format('DD MMMM H:mm');
       let ts = parseDateTime(inc.attributes.start);
       let tf = parseDateTime(inc.attributes.finish);
-      $("#tourroute").prepend(
-        moment(inc.attributes.start).format("DD MMMM") +
-          " " +
-          ts +
-          " - " +
-          moment(inc.attributes.finish).format("DD MMMM") +
-          " " +
-          tf +
-          " (Дней: " +
-          inc.attributes.days +
-          ")<br>" +
-          inc.attributes.route
-      );
-      $("#tourtitle").html(
-        '<span class="tours-item__date">' +
-          moment(inc.attributes.start).format("DD MMMM") +
-          " " +
-          ts +
-          " - " +
-          moment(inc.attributes.finish).format("DD MMMM") +
-          " " +
-          tf +
-          " (Дней: " +
-          inc.attributes.days +
-          ")</span><br>" +
-          inc.attributes.route
-      );
+      $('#tourroute').prepend(moment(inc.attributes.start).format('DD MMMM') + ' ' + ts + ' - ' + moment(inc.attributes.finish).format('DD MMMM') + ' ' + tf + ' (Дней: ' + inc.attributes.days + ')<br>' +  inc.attributes.route );
+      $('#tourtitle').html('<span class="tours-item__date">' + moment(inc.attributes.start).format('DD MMMM') + ' ' + ts + ' - ' + moment(inc.attributes.finish).format('DD MMMM') + ' ' + tf + ' (Дней: ' + inc.attributes.days + ')</span><br>' +  inc.attributes.route  );
     }
-    if (index + 1 === points.included.length) {
+    if(index + 1 === points.included.length){
       let tourpoints = {};
-      $.each(points.data, function(i, point) {
-        let ex = "";
-        let def = "";
-        if (point.relationships.excursions.hasOwnProperty("data")) {
-          $.each(point.relationships.excursions.data, function(a, exq) {
-            if (excursions[exq.id].name === "Программа") {
-              def += "<p>" + excursions[exq.id].description + "</p>";
-            } else {
-              ex +=
-                "<p><strong>" +
-                excursions[exq.id].name +
-                "\n\n</strong></p><p>" +
-                excursions[exq.id].description +
-                "</p>";
+      $.each(points.data, function(i, point){
+        let ex = '';
+        let def = '';
+        if(point.relationships.excursions.hasOwnProperty('data')){
+          $.each(point.relationships.excursions.data, function(a,exq){
+            let exDesc = excursions[exq.id].description === null ? '' : excursions[exq.id].description;
+            if(excursions[exq.id].name === 'Экскурсии на выбор') {
+              def += '<p><strong>' + excursions[exq.id].title + '\n\n</strong></p><p>' + exDesc + '</p>';
+            }else {
+              ex += '<p><strong>' + excursions[exq.id].name + '\n\n</strong></p><p>' + exDesc + '</p>';
             }
           });
         }
-        if (point.relationships["title-image"].hasOwnProperty("data")) {
-          imgsrc =
-            '<img src="' +
-            images[point.relationships["title-image"].data.id] +
-            '" alt="' +
-            point.attributes.name +
-            '"/>';
-        } else {
-          imgsrc =
-            '<img src="/assets/img/mtf/ships/blank.jpg" alt="' +
-            point.attributes.name +
-            '"/>';
+        if(point.relationships['title-image'].hasOwnProperty('data')){
+          imgsrc = '<img src="' + images[point.relationships['title-image'].data.id] + '" alt="' + point.attributes.name + '"/>';
+        }else{
+          imgsrc = '<img src="/assets/img/mtf/ships/blank.jpg" alt="' + point.attributes.name + '"/>';
         }
 
-        let arrive =
-          moment(point.attributes.arrive).isValid() === true
-            ? moment(point.attributes.arrive).format("DD MMMM H:mm")
-            : "";
-        let departure =
-          moment(point.attributes.departure).isValid() === true
-            ? moment(point.attributes.departure).format("DD MMMM H:mm")
-            : "";
-        let unix =
-          moment(point.attributes.arrive).isValid() === true
-            ? moment(point.attributes.arrive).format("X")
-            : moment(point.attributes.date).format("X");
+        let arrive = moment(point.attributes.arrive).isValid() === true ? moment(point.attributes.arrive).format('DD MMMM H:mm'):'';
+        let departure = moment(point.attributes.departure).isValid() === true ? moment(point.attributes.departure).format('DD MMMM H:mm'):'';
+        let unix = moment(point.attributes.arrive).isValid() === true ? moment(point.attributes.arrive).format('X'):moment(point.attributes.date).format('X');
 
-        let pointDate =
-          arrive + (departure === "" ? departure : " - " + departure);
-        let formatDate =
-          pointDate === ""
-            ? moment(point.attributes.date).format("DD MMMM")
-            : pointDate;
-        let pointTitle =
-          point.attributes.name === null ? " " : point.attributes.name;
+        let pointDate = arrive + (departure === ''? departure: ' - ' + departure);
+        let formatDate = pointDate === '' ? moment(point.attributes.date).format('DD MMMM') : pointDate;
+        let pointTitle = point.attributes.name === null ? ' ' : point.attributes.name;
         //console.log(point.attributes.name);
         //if(point.attributes.name !== null) {
-        let note = "";
-        if (point.attributes.note) {
+        let note = '';
+        if(point.attributes.note){
           note = point.attributes.note;
         }
-        if (def.length > 0) {
-          def = "<p><strong>Программа:</strong></p>" + def;
+        if(def.length > 0){
+          //def = '<p><strong>Экскурсии на выбор</strong></p>' + def;
         }
 
-        tourpoints[unix] =
-          '<li class="tours__item"><div class="tours-item"><div class="tours-item__img">\n' +
-          "<picture>" +
-          imgsrc +
-          "</picture></div>\n" +
-          '<div class="tours-item__content">\n' +
-          '<span class="tours-item__date">' +
-          formatDate +
-          "</span>\n" +
-          '<span class="tours-item__title">' +
-          pointTitle +
-          "</span>\n" +
-          '<div class="tours-item__text"><div class="excursions">' +
-          note +
-          def +
-          ex +
-          "</div></div></div></div></li>";
+        tourpoints[unix] = '<li class="tours__item"><div class="tours-item"><div class="tours-item__img">\n' +
+            '<picture>' + imgsrc + '</picture></div>\n' +
+            '<div class="tours-item__content">\n' +
+            '<span class="tours-item__date">' + formatDate + '</span>\n' +
+            '<span class="tours-item__title">' + pointTitle + '</span>\n' +
+            '<div class="tours-item__text"><div class="excursions">' + note + def + ex + '</div></div></div></div></li>';
         //}
-        if (i + 1 === points.data.length) {
+        if(i + 1 === points.data.length){
           $tourPoints.empty();
           let counter = 0;
-          //ddefTable.content[0].text[1] = {text: tourRoute + "\n\n", style: 'description'};
-          //ddefTable.content[0].text[2] = {text: tourDates, style: 'description'};
-          //ddefRoute.content[0].text[1] = {text: tourRoute + "\n\n", style: 'subheader'};
-          //ddefRoute.content[0].text[2] = {text: tourDates + "\n\n", style: 'comment'};
-          $.each(tourpoints, function(key, item) {
+          $.each(tourpoints, function(key, item){
             counter++;
             $tourPoints.append(item);
-            //console.log('title ' + $(item).find('.tours-item__title').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n").length);
-            /*if($(item).find('.tours-item__title').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n").length > 2) {
-                                        ddefRoute.content.push({
-                                            text: $(item).find('.tours-item__title').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n"),
-                                            style: 'header'
-                                        });
-                                        ddefRoute.content.push({
-                                            text: $(item).find('.tours-item__date').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n"),
-                                            style: 'comment'
-                                        });
-                                        ddefRoute.content.push({
-                                            text: $(item).find('.tours-item__text').text().replace(/(?:(?:\r\n|\r|\n)\s*){2}/gm, "\n\n"),
-                                            style: 'description'
-                                        });
-                                    }*/
-            //if(counter === Object.keys(tourpoints).length) {
-            //console.log('notes ' + tourNotes);
-            // ddefRoute.content.push({text: 'Примечание:', style: 'subheader'});
-            //ddefRoute.content.push({text: tourNotes, style: 'comment'});
-            //}
-          });
+          })
         }
       });
     }
   });
 }
+
 
 function renderShipDescription(ship) {
   const $deckplan = $("#river_ship_cruise_deckplan");

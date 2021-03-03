@@ -32,6 +32,7 @@
     "lodash.throttle": "^4.1.1",
     "magnific-popup": "^1.1.0",
     "moment": "^2.27.0",
+    "moment-timezone": "^0.5.31",
     "nouislider": "^14.1.1",
     "plural-ru": "^2.0.2",
     "select2": "^4.0.13",
